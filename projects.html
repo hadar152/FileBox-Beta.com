@@ -11,6 +11,7 @@
         body {
             background-color: #f8d7da;
             color: #721c24;
+            user-select: none;
         }
         
         .container {
@@ -60,15 +61,11 @@
             background-image: url("addPprojectBtn.png");
             background-repeat: no-repeat;
             background-size: cover;
-            width: 24px;
-            height: 24px;
+            width: 25px;
+            height: 25px;
             border-radius: 20%;
             cursor: pointer;
             transition: 0.8s;
-        }
-        
-        #AddProjectBtn:hover {
-            transform: scale(1.1);
         }
         
         a {
@@ -85,15 +82,22 @@
 <body>
     <header>
         <h1>FileBox-Beta</h1>
+        <b>Projects</b>
+        <br>
         <a href="projects.html">Projects</a>
         <a href="index.html">Home</a>
     </header>
 
     <div class="container">
+        <b>Only 350 projects can be uploaded</b>
+        <br>
         <label for="fileInput">Add project</label>
         <br>
         <input type="file" id="fileInput" webkitdirectory multiple style="display: none;">
         <div id="AddProjectBtn" onclick="document.getElementById('fileInput').click();"></div>
+        <br>
+        <b>My Project List</b>
+        <br><br>
         <div id="projectList"></div>
     </div>
 
@@ -116,7 +120,10 @@
 
         document.getElementById('fileInput').addEventListener('change', function() {
             const files = Array.from(this.files);
-            if (files.length === 0) return;
+
+            if (files.length === 0) {
+                return;
+            }
 
             if (Object.keys(savedProjects).length >= MAX_PROJECTS) {
                 alert(`You have reached the maximum limit of ${MAX_PROJECTS} projects.`);
