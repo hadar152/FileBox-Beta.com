@@ -15,10 +15,7 @@
         
         .container {
             margin-top: 50px;
-            background-color: #fff;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         
         .folder-item,
@@ -30,6 +27,7 @@
             border: 1px solid #f5c6cb;
             border-radius: 4px;
             margin-bottom: 10px;
+            transition: 0.8s;
         }
         
         .folder-item:hover,
@@ -40,6 +38,11 @@
         .btn-danger {
             background-color: #c82333;
             border: none;
+            transition: 0.8s;
+        }
+        
+        .btn-danger:hover {
+            transform: scale(1.1);
         }
         
         .btn-danger:hover {
@@ -58,19 +61,29 @@
             margin: 0;
             font-size: 2.5rem;
         }
+        
+        a {
+            color: rgb(48, 0, 0);
+            transition: 0.5s;
+        }
+        
+        a:hover {
+            font-size: 17px;
+        }
     </style>
 </head>
 
 <body>
     <header>
         <h1>FileBox-Beta</h1>
+        <a href="projects.html">Projects</a>
     </header>
 
     <div class="container">
         <div class="mb-4">
             <label for="fileInput" class="form-label">Upload Files or Folders</label>
             <input type="file" id="fileInput" webkitdirectory directory multiple class="form-control">
-            <button class="btn btn-danger mt-3" onclick="uploadFiles()">Upload</button>
+            <button id="upload-btn" class="btn btn-danger mt-3" onclick="uploadFiles()">Upload</button>
         </div>
 
         <div id="folderList">
@@ -106,15 +119,22 @@
                     savedFolders[folderName] = [];
                 }
 
-                savedFolders[folderName].push(file);
-                savedFiles[file.name] = file;
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const fileData = event.target.result;
+                    savedFolders[folderName].push({
+                        name: file.name,
+                        data: fileData,
+                    });
+                    savedFiles[file.name] = fileData;
 
-                // שומרים את התיקיות והקבצים ב-localStorage כ-Blob
-                saveFilesToStorage();
+                    saveFilesToStorage();
+                    renderFolderList();
+                    renderFileList();
+                };
+                reader.readAsDataURL(file); // המרת תוכן הקובץ ל-Base64
             });
 
-            renderFolderList();
-            renderFileList();
             fileInput.value = '';
         }
 
@@ -123,11 +143,11 @@
             const savedFilesData = localStorage.getItem('savedFiles');
 
             if (savedFoldersData) {
-                savedFolders = JSON.parse(savedFoldersData);
+                Object.assign(savedFolders, JSON.parse(savedFoldersData));
             }
 
             if (savedFilesData) {
-                savedFiles = JSON.parse(savedFilesData);
+                Object.assign(savedFiles, JSON.parse(savedFilesData));
             }
 
             renderFolderList();
@@ -137,7 +157,6 @@
         window.onload = loadSavedFiles;
 
         function saveFilesToStorage() {
-            // נשמור את הקבצים ב-localStorage כ-Blob
             localStorage.setItem('savedFolders', JSON.stringify(savedFolders));
             localStorage.setItem('savedFiles', JSON.stringify(savedFiles));
         }
@@ -151,17 +170,15 @@
                 return;
             }
 
-            const folderItems = folderNames.map(folder => {
-                return `
-            <div class="folder-item">
-                <span>${folder}</span>
-                <div>
-                    <button class="btn btn-danger btn-sm" onclick="deleteFolder('${folder}')">Delete</button>
-                    <button class="btn btn-primary btn-sm" onclick="downloadFolder('${folder}')">Download</button>
+            const folderItems = folderNames.map(folder => `
+                <div class="folder-item">
+                    <span>${folder}</span>
+                    <div>
+                        <button class="btn btn-danger btn-sm" onclick="deleteFolder('${folder}')">Delete</button>
+                        <button class="btn btn-primary btn-sm" onclick="downloadFolder('${folder}')">Download</button>
+                    </div>
                 </div>
-            </div>
-        `;
-            }).join('');
+            `).join('');
 
             folderList.innerHTML = `<h3>Saved Folders</h3>${folderItems}`;
         }
@@ -175,15 +192,13 @@
                 return;
             }
 
-            const fileItems = fileNames.map(fileName => {
-                return `
-            <div class="file-item">
-                <span>${fileName}</span>
-                <button class="btn btn-danger btn-sm" onclick="deleteFile('${fileName}')">Delete</button>
-                <button class="btn btn-primary btn-sm" onclick="downloadFile('${fileName}')">Download</button>
-            </div>
-        `;
-            }).join('');
+            const fileItems = fileNames.map(fileName => `
+                <div class="file-item">
+                    <span>${fileName}</span>
+                    <button class="btn btn-danger btn-sm" onclick="deleteFile('${fileName}')">Delete</button>
+                    <button class="btn btn-primary btn-sm" onclick="downloadFile('${fileName}')">Download</button>
+                </div>
+            `).join('');
 
             fileList.innerHTML = `<h3>Saved Files</h3>${fileItems}`;
         }
@@ -209,19 +224,17 @@
         }
 
         function downloadFile(fileName) {
-            const file = savedFiles[fileName];
+            const fileData = savedFiles[fileName];
 
-            if (!file) {
+            if (!fileData) {
                 alert('File not found! It might have been deleted.');
                 return;
             }
 
-            const blob = file; // ב-Blob ישירות, אין צורך להמיר
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = file.name;
+            a.href = fileData;
+            a.download = fileName;
             a.click();
-            URL.revokeObjectURL(a.href);
         }
 
         function downloadFolder(folderName) {
@@ -235,8 +248,10 @@
             const zip = new JSZip();
 
             folderFiles.forEach(file => {
-                const blob = file; // ב-Blob ישירות, אין צורך להמיר
-                zip.file(file.name, blob);
+                const base64Data = file.data.split(',')[1]; // להוציא את החלק של Base64 בלבד
+                zip.file(file.name, base64Data, {
+                    base64: true
+                });
             });
 
             zip.generateAsync({
@@ -255,6 +270,7 @@
                 });
         }
     </script>
+
 </body>
 
 </html>
